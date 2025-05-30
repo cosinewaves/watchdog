@@ -57,7 +57,7 @@ Fires the callback when any instance is tagged with `tagName`. Also fires for al
 
 ## 🛠 Type Definitions
 
-You can find all type definitions in [`types.lua`](./types.lua).
+You can find all type definitions in [`types.lua`](watchdog/types.lua).
 
 ```ts
 export type DisconnectFunction = () -> ()
