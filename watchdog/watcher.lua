@@ -2,11 +2,11 @@ local CollectionService = game:GetService("CollectionService")
 
 local types = require("../watchdog./types")
 
-local watcher = {}
+local watcher = {} :: types.Watcher
 watcher.__index = watcher
 
 -- Utility to safely disconnect a connection
-local function safeDisconnect(conn)
+local function safeDisconnect(conn: RBXScriptConnection?)
 	if conn and typeof(conn) == "RBXScriptConnection" and conn.Connected then
 		pcall(function()
 			conn:Disconnect()
@@ -21,7 +21,7 @@ end
     @param object Instance
     @return disconnect: () -> (), error: () -> string?
 ]=]
-function watcher.watchProperty(propertyName: string, object: Instance): (() -> (), () -> string?)
+function watcher.watchProperty(propertyName: string, object: Instance): (types.DisconnectFunction, types.ErrorFunction)
 	local success, err = pcall(function()
 		if not object or typeof(object) ~= "Instance" then
 			error("Expected a valid Instance.")
@@ -34,8 +34,10 @@ function watcher.watchProperty(propertyName: string, object: Instance): (() -> (
 		return function() end, function() return err end
 	end
 
-	local conn
-	local ok, watchErr = pcall(function()
+	local conn: RBXScriptConnection?
+	local watchErr: string? = nil
+
+	local _ok = pcall(function()
 		conn = object:GetPropertyChangedSignal(propertyName):Connect(function()
 			print(`[watchProperty] {propertyName} on {object:GetFullName()} changed to {object[propertyName]}`)
 		end)
@@ -55,7 +57,7 @@ end
     @param object Instance
     @return disconnect: () -> (), error: () -> string?
 ]=]
-function watcher.watchAttribute(attributeName: string, object: Instance): (() -> (), () -> string?)
+function watcher.watchAttribute(attributeName: string, object: Instance): (types.DisconnectFunction, types.ErrorFunction)
 	local success, err = pcall(function()
 		if not object or typeof(object) ~= "Instance" then
 			error("Expected a valid Instance.")
@@ -68,8 +70,10 @@ function watcher.watchAttribute(attributeName: string, object: Instance): (() ->
 		return function() end, function() return err end
 	end
 
-	local conn
-	local ok, watchErr = pcall(function()
+	local conn: RBXScriptConnection?
+	local watchErr: string? = nil
+
+	local _ok = pcall(function()
 		conn = object:GetAttributeChangedSignal(attributeName):Connect(function()
 			print(`[watchAttribute] {attributeName} on {object:GetFullName()} changed to {object:GetAttribute(attributeName)}`)
 		end)
@@ -89,7 +93,7 @@ end
     @param callback (Instance) -> ()
     @return disconnect: () -> (), error: () -> string?
 ]=]
-function watcher.watchTag(tagName: string, callback: (Instance) -> ()): (() -> (), () -> string?)
+function watcher.watchTag(tagName: string, callback: (Instance) -> ()): (types.DisconnectFunction, types.ErrorFunction)
 	local success, err = pcall(function()
 		if typeof(tagName) ~= "string" then
 			error("Expected tagName to be a string.")
@@ -102,7 +106,7 @@ function watcher.watchTag(tagName: string, callback: (Instance) -> ()): (() -> (
 		return function() end, function() return err end
 	end
 
-	local conns = {}
+	local conns: { RBXScriptConnection } = {}
 
 	local function onTagged(instance: Instance)
 		local ok, tagErr = pcall(callback, instance)
@@ -113,13 +117,13 @@ function watcher.watchTag(tagName: string, callback: (Instance) -> ()): (() -> (
 
 	table.insert(conns, CollectionService:GetInstanceAddedSignal(tagName):Connect(onTagged))
 
-	-- For already-tagged instances
+	-- Handle already tagged instances
 	for _, instance in ipairs(CollectionService:GetTagged(tagName)) do
 		task.spawn(onTagged, instance)
 	end
 
 	return function()
-		for _, conn in ipairs(conns) do
+		for _, conn in conns do
 			safeDisconnect(conn)
 		end
 	end, function()
